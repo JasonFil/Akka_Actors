@@ -4,7 +4,7 @@
 		module="actortests$sources_javadoc_2.11"
 		revision="1.0"
 		status="integration"
-		publication="20151211142022"
+		publication="20151216114550"
 	/>
 	<configurations>
 		<conf name="compile" visibility="public" description=""/>

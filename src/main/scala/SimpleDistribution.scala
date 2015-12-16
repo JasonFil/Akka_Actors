@@ -3,6 +3,7 @@
 	*/
 
 import akka.actor._
+import akka.actor.SupervisorStrategy._
 
 case class WorkMessage(data:Seq[Int])
 case class ProblemMessage(problematicData:Seq[Int], workerName:String = "Unknown worker")
@@ -15,10 +16,18 @@ class Master(numWorkers:Int, dataset:Seq[Int]) extends Actor{
 	val batches = dataset.grouped(dataset.size / numWorkers).toIndexedSeq
 	workers zip(batches) foreach {case(a, d)=> a ! WorkMessage(d)}
 
+	// Register ourselves for Terminated messages
+	workers foreach (w=>context.watch(w))
+
 	def receive = readMSgs
+
+	override val supervisorStrategy = OneForOneStrategy() {
+		case _:ActorKilledException => Restart // TODO:Try restarting as well.
+	}
 
 	def readMSgs:Receive = {
 		case ProblemMessage(problematicData:Seq[Int], workerName:String) =>
+			println("Received a ProblemMessage in master.")
 			context become ignoreWorkerProblems
 			self ! Process(problematicData, workerName)
 		case _ => throw new RuntimeException("Unknown message received at master.")
@@ -27,9 +36,10 @@ class Master(numWorkers:Int, dataset:Seq[Int]) extends Actor{
 	def ignoreWorkerProblems:Receive = {
 		case ProblemMessage(pData:Seq[Int], workerName:String) => println(s"Master is ignoring message $pData from worker $workerName")
 		case Process(data:Seq[Int], workerName:String) =>
-			workers foreach (i=> context.stop(i)) // Stop all workers.
+			workers foreach (i=> i ! Kill) // Stop all workers.
 			println(s"Master working on data: $data sent to it by worker $workerName.")
 		 	//context become readMSgs //TODO: Instead of this, find a way to wait for children's termination before re-launching the data cycle.
+			case Terminated(_) => println("Received a Termination message at master")
 		case _ => throw new RuntimeException("Unknown message received at master.")
 	}
 }
@@ -50,9 +60,7 @@ class Worker extends Actor {
 				println(s"Worker $myName is terminating normally.")
 				context.stop(self)
 			}
-			/*case Stop =>
-				println(s"Worker $myName received a stopping message from master..")
-				context.stop(self)*/
+
 		case _ => throw new RuntimeException(s"Unknown message received at worker $myName.")
 	}
 }
@@ -60,6 +68,7 @@ class Worker extends Actor {
 object SimpleDistribution extends App{
 	val system = ActorSystem("Test_System")
 	val master = system.actorOf(Props(new Master(5, 1 to 1000)), name = "My_Master")
+	//system.terminate()
 	//master ! Kill
 	//println("Exiting application....")
 }

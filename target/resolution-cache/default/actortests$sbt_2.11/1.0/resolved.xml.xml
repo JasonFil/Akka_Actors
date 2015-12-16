@@ -4,7 +4,7 @@
 		module="actortests$sbt_2.11"
 		revision="1.0"
 		status="integration"
-		publication="20151211142021"
+		publication="20151216114548"
 	/>
 	<configurations>
 		<conf name="default" visibility="public"/>
